@@ -13,7 +13,8 @@ export function Attachments({ projectId }: { projectId: string }) {
   const { profile } = useAuth()
   const { canEdit } = usePermissions()
   const profiles = useProfileMap()
-  const { data, isLoading } = useAttachments(projectId)
+  const { data: all, isLoading } = useAttachments(projectId)
+  const data = all?.filter((a) => !a.stage_id) // os de etapa/tarefa aparecem nelas
   const { upload, remove } = useAttachmentMutations(projectId, profile?.id)
   const input = useRef<HTMLInputElement>(null)
 
@@ -40,7 +41,7 @@ export function Attachments({ projectId }: { projectId: string }) {
       {data && !data.length && <p className="text-sm text-slate-500">Nenhum anexo.</p>}
       <ul className="space-y-1.5">
         {data?.map((a) => (
-          <li key={a.id} className="flex items-center justify-between gap-2 text-sm">
+          <li key={a.id} className="row-hover flex items-center justify-between gap-2 rounded px-1.5 py-1 text-sm hover:translate-x-1">
             <button className="min-w-0 truncate text-left text-brand hover:underline"
               onClick={() => openAttachment(a.arquivo_url).catch((e: Error) => toast(e.message))}>{a.nome}</button>
             <span className="flex shrink-0 items-center gap-2 text-xs text-slate-500">

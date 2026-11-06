@@ -5,6 +5,7 @@ export function useTheme() {
   const toggle = useCallback(() => {
     const next = !document.documentElement.classList.contains('dark')
     document.documentElement.classList.toggle('dark', next)
+    document.documentElement.style.colorScheme = next ? 'dark' : 'light'
     try { localStorage.setItem('theme', next ? 'dark' : 'light') } catch { /* ignore */ }
     setDark(next)
   }, [])

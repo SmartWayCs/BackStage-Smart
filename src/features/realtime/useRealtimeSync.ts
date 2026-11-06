@@ -5,7 +5,10 @@ import { supabase } from '@/lib/supabase'
 // tabela -> prefixos de queryKey que devem ser refeitos quando ela muda
 const TABLES: Record<string, string[]> = {
   projects: ['projects', 'project'],
-  tasks: ['tasks', 'projects', 'project'], // mexer em tarefa muda o % do projeto
+  project_members: ['projects', 'project'],
+  project_stages: ['stages', 'tasks', 'projects', 'project'],
+  stage_members: ['stage-members'],
+  requests: ['requests'],
   ideas: ['ideas'],
   comments: ['comments'],
   attachments: ['attachments'],

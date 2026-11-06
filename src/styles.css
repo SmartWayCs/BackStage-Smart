@@ -3,11 +3,22 @@
 @tailwind utilities;
 
 @layer base {
-  body { @apply bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100; }
+  body {
+    @apply text-slate-900 antialiased;
+    background-color: #0b1a3f;
+    background-attachment: fixed;
+    background-image:
+      radial-gradient(60% 45% at 85% -5%, rgba(56,189,248,.40) 0%, rgba(56,189,248,0) 70%),
+      radial-gradient(55% 50% at 0% 0%, rgba(99,102,241,.50) 0%, rgba(99,102,241,0) 70%),
+      radial-gradient(70% 55% at 40% 115%, rgba(37,99,235,.95) 0%, rgba(37,99,235,0) 70%),
+      radial-gradient(45% 45% at 100% 100%, rgba(34,211,238,.60) 0%, rgba(34,211,238,0) 70%),
+      radial-gradient(45% 45% at 0% 100%, rgba(79,70,229,.80) 0%, rgba(79,70,229,0) 70%),
+      linear-gradient(180deg, #0c1d4a 0%, #0a1638 50%, #081029 100%);
+  }
 }
 @layer components {
-  .btn { @apply inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition disabled:opacity-50; }
-  .btn-primary { @apply btn bg-brand text-white hover:bg-brand-dark; }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition duration-200 active:scale-95 disabled:opacity-50; }
+  .btn-primary { @apply btn bg-brand text-white hover:-translate-y-px hover:bg-brand-dark hover:shadow-lg hover:shadow-brand/30; }
   .btn-ghost { @apply btn text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-800; }
   .input { @apply w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand dark:border-slate-700 dark:bg-slate-900; }
   .card { @apply rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900; }
@@ -19,10 +30,61 @@
   --chart-grid: #e2e8f0;
   --chart-muted: #64748b;
   --chart-ink: #0f172a;
+  --chart-surface: #ffffff;
+  --accent-pink: #dd3f7c;
 }
 .dark {
   --series-1: #3987e5;
   --chart-grid: #1e293b;
   --chart-muted: #94a3b8;
   --chart-ink: #f1f5f9;
+  --chart-surface: #0f172a;
+  --accent-pink: #e5679a;
 }
+
+/* ---------- interações de hover ---------- */
+@layer components {
+  /* card que levanta e ganha brilho azul */
+  .card-hover { @apply transition-all duration-300 hover:-translate-y-1 hover:border-brand/40 hover:shadow-xl hover:shadow-brand/10; }
+  /* item menor: sobe um pouco */
+  .item-hover { @apply transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-md hover:shadow-brand/10; }
+  /* linha de tabela/lista */
+  .row-hover { @apply transition-all duration-200 hover:bg-brand/5 dark:hover:bg-brand/10; }
+  .hover-pop { @apply transition-transform duration-200 hover:scale-110; }
+}
+/* sublinhado que desliza da esquerda para a direita */
+.link-slide { position: relative; }
+.link-slide::after { content: ''; position: absolute; left: 0; bottom: -2px; height: 2px; width: 0; background: #2563eb; transition: width .3s ease; }
+.link-slide:hover::after { width: 100%; }
+/* brilho que atravessa o elemento no hover */
+.shine { position: relative; overflow: hidden; }
+.shine::after { content: ''; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,.45) 50%, transparent 70%); transform: translateX(-100%); pointer-events: none; }
+.shine:hover::after { transform: translateX(100%); transition: transform .8s ease; }
+
+/* ---------- visual tecnológico ---------- */
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(255,255,255,.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.07) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+.mask-fade { mask-image: radial-gradient(ellipse at center, #000 30%, transparent 75%); -webkit-mask-image: radial-gradient(ellipse at center, #000 30%, transparent 75%); }
+.glass { @apply border border-white/15 bg-white/10 backdrop-blur-md; }
+.skeleton { @apply animate-shimmer rounded-lg bg-[length:200%_100%] bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800; }
+.text-gradient { @apply bg-gradient-to-r from-brand via-accent to-brand bg-[length:200%_auto] bg-clip-text text-transparent animate-gradient-x; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
+/* ---------- impressão / PDF ---------- */
+@media print {
+  @page { margin: 12mm; }
+  html, body { background: #fff !important; }
+  .no-print { display: none !important; }
+  .print-sheet { border: 0 !important; box-shadow: none !important; padding: 0 !important; border-radius: 0 !important;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  * { animation: none !important; }
+}
+
+@keyframes tv-progress { from { width: 0 } to { width: 100% } }

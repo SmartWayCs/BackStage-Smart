@@ -1,17 +1,19 @@
 import { useEffect, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
-export function Dialog({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function Dialog({ title, onClose, children, wide }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  return (
-    <div className="fixed inset-0 z-40 grid place-items-center bg-black/50 p-4" onMouseDown={onClose}>
+  // Portal no <body>: nenhum ancestral com transform/animação pode prender o position:fixed.
+  return createPortal(
+    <div className="fixed inset-0 z-40 grid animate-fade-in place-items-center bg-black/50 p-4" onMouseDown={onClose}>
       <div role="dialog" aria-modal="true" aria-label={title}
-        className="card max-h-[90vh] w-full max-w-lg overflow-y-auto p-5"
+        className={`card max-h-[90vh] w-full animate-fade-up ${wide ? 'max-w-3xl' : 'max-w-lg'} overflow-y-auto p-5`}
         onMouseDown={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-semibold">{title}</h2>
@@ -19,6 +21,7 @@ export function Dialog({ title, onClose, children }: { title: string; onClose: (
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

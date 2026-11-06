@@ -9,6 +9,7 @@ interface AuthState {
   loading: boolean
   signIn: (email: string, password: string) => Promise<string | null>
   signOut: () => Promise<void>
+  reloadProfile: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthState | null>(null)
@@ -36,14 +37,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true }
   }, [userId])
 
-  const signIn: AuthState['signIn'] = async (email, password) => {
+  const reloadProfile = async () => {
+    if (!userId) return
+    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single()
+    setProfile(data)
+  }
+
+  const signIn: AuthState['signIn'] = async (identifier, password) => {
+    // Sem "@" é um nome de usuário: descobre o e-mail correspondente.
+    // Se não existir, tenta com o texto digitado e cai no mesmo erro genérico (não revela se o usuário existe).
+    let email = identifier.trim()
+    if (!email.includes('@')) {
+      const { data } = await supabase.rpc('login_email', { p_identifier: email })
+      if (data) email = data
+    }
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     return error ? error.message : null
   }
   const signOut = async () => { await supabase.auth.signOut() }
 
   return (
-    <AuthContext.Provider value={{ session, profile, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ session, profile, loading, signIn, signOut, reloadProfile }}>
       {children}
     </AuthContext.Provider>
   )

@@ -33,7 +33,7 @@ export function Ideas({ projectId }: { projectId: string }) {
       {data && !data.length && <p className="text-sm text-slate-500">Nenhuma ideia registrada.</p>}
       <ul className="space-y-2">
         {data?.map((i) => (
-          <li key={i.id} className="rounded-md border border-slate-200 p-2.5 text-sm dark:border-slate-700">
+          <li key={i.id} className="item-hover rounded-md border border-slate-200 p-2.5 text-sm dark:border-slate-700">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <p className="font-medium">{i.titulo}</p>
@@ -41,14 +41,14 @@ export function Ideas({ projectId }: { projectId: string }) {
               </div>
               {canEdit && (
                 <div className="flex shrink-0 items-center gap-1">
-                  {i.convertida_em_task_id
+                  {i.convertida_em_stage_id
                     ? <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-800 dark:bg-green-900/40 dark:text-green-200">Convertida</span>
                     : <button className="btn-ghost px-2 py-1 text-xs" disabled={convert.isPending} onClick={() => convert.mutate(i.id)}>
-                        <ArrowRightCircle size={14} />Virar tarefa</button>}
+                        <ArrowRightCircle size={14} />Virar etapa</button>}
                   <button className="btn-ghost px-2 py-1 text-slate-400 hover:text-red-600" aria-label="Excluir ideia" onClick={() => remove.mutate(i.id)}><Trash2 size={14} /></button>
                 </div>
               )}
-              {!canEdit && i.convertida_em_task_id && <span className="text-xs text-green-700 dark:text-green-300">Convertida</span>}
+              {!canEdit && i.convertida_em_stage_id && <span className="text-xs text-green-700 dark:text-green-300">Convertida</span>}
             </div>
           </li>
         ))}

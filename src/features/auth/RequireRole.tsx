@@ -3,7 +3,7 @@ import { useAuth } from './AuthProvider'
 import type { UserRole } from '@/types/database.types'
 
 export function FullScreenMessage({ children }: { children: React.ReactNode }) {
-  return <div className="grid min-h-screen place-items-center p-6 text-sm text-slate-500">{children}</div>
+  return <div className="grid min-h-screen place-items-center p-6 text-sm text-white/70">{children}</div>
 }
 
 /** Exige login; opcionalmente restringe a certos perfis. */
@@ -14,6 +14,8 @@ export function RequireRole({ roles }: { roles?: UserRole[] }) {
   if (loading) return <FullScreenMessage>Carregando…</FullScreenMessage>
   if (!session) return <Navigate to="/login" replace state={{ from: location }} />
   if (!profile) return <FullScreenMessage>Carregando perfil…</FullScreenMessage>
+  // Primeiro acesso / senha redefinida: só libera o app depois de trocar a senha
+  if (profile.must_change_password) return <Navigate to="/trocar-senha" replace />
   if (roles && !roles.includes(profile.role)) return <Navigate to="/" replace />
   return <Outlet />
 }

@@ -2,9 +2,12 @@
 // Depois de criar o projeto Supabase, regenere com: npm run gen:types
 
 export type UserRole = 'ti' | 'supervisao' | 'admin'
-export type ProjectStatus = 'ideia' | 'planejamento' | 'em_andamento' | 'em_pausa' | 'concluido'
-export type Priority = 'baixa' | 'media' | 'alta' | 'urgente'
-export type TaskStatus = 'a_fazer' | 'fazendo' | 'feito'
+export type EtapaStatus = 'ideia' | 'planejamento' | 'em_andamento' | 'em_pausa' | 'concluido'
+export type PedidoStatus = 'novo' | 'em_analise' | 'aprovado' | 'recusado' | 'convertido'
+export type PedidoUrgencia = 'baixa' | 'media' | 'alta' | 'urgente'
+export type ProjetoModo = 'desenvolvimento' | 'manutencao'
+export type RiscoNivel = 'baixo' | 'medio' | 'alto'
+export type Priority = 'neutra' | 'baixa' | 'media' | 'alta' | 'urgente'
 
 type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
@@ -19,23 +22,39 @@ export interface Database {
   public: {
     Tables: {
       profiles: Table<{
-        id: string; nome: string; email: string; role: UserRole
+        id: string; nome: string; email: string; username: string; role: UserRole; must_change_password: boolean
         avatar_url: string | null; created_at: string
       }, 'id' | 'nome' | 'email'>
       projects: Table<{
-        id: string; nome: string; descricao: string | null; status: ProjectStatus
-        prioridade: Priority; responsavel_id: string | null; situacao_atual: string | null
-        data_inicio: string | null; prazo: string | null; tags: string[]
-        posicao: number; created_at: string; updated_at: string
+        id: string; nome: string; descricao: string | null
+        prioridade: Priority; situacao_atual: string | null
+        data_inicio: string | null; prazo: string | null; tags: string[]; horas_previstas: number | null; notas: string | null; modo: ProjetoModo
+        created_at: string; updated_at: string
       }, 'nome'>
-      tasks: Table<{
-        id: string; project_id: string; titulo: string; descricao: string | null
-        status: TaskStatus; responsavel_id: string | null; prazo: string | null
-        posicao: number; concluida_em: string | null
-      }, 'project_id' | 'titulo'>
+      project_stages: Table<{
+        id: string; project_id: string; nome: string; posicao: number; status: EtapaStatus; descricao: string | null
+        horas_previstas: number | null; horas_realizadas: number | null
+        data_inicio: string | null; prazo: string | null; concluida_em: string | null; created_at: string
+        bloqueada: boolean; bloqueio_motivo: string | null; risco: RiscoNivel | null; notas: string | null
+      }, 'project_id' | 'nome'>
+      api_tokens: Table<{
+        id: string; nome: string; prefixo: string; token_hash: string; criado_por: string | null
+        created_at: string; last_used_at: string | null; revoked_at: string | null
+      }, 'nome' | 'prefixo' | 'token_hash'>
+      requests: Table<{
+        id: string; titulo: string; descricao: string | null; setor: string | null; urgencia: PedidoUrgencia
+        status: PedidoStatus; solicitante_id: string | null; resposta: string | null; decidido_por: string | null
+        decidido_em: string | null; project_id: string | null; created_at: string
+      }, 'titulo'>
+      stage_members: Table<{
+        stage_id: string; user_id: string; created_at: string
+      }, 'stage_id' | 'user_id'>
+      project_members: Table<{
+        project_id: string; user_id: string; created_at: string
+      }, 'project_id' | 'user_id'>
       ideas: Table<{
         id: string; project_id: string; titulo: string; descricao: string | null
-        autor_id: string | null; convertida_em_task_id: string | null; created_at: string
+        autor_id: string | null; convertida_em_stage_id: string | null; created_at: string
       }, 'project_id' | 'titulo'>
       comments: Table<{
         id: string; project_id: string; autor_id: string; conteudo: string
@@ -43,7 +62,7 @@ export interface Database {
       }, 'project_id' | 'autor_id' | 'conteudo'>
       attachments: Table<{
         id: string; project_id: string; arquivo_url: string; nome: string
-        enviado_por: string | null; created_at: string
+        enviado_por: string | null; stage_id: string | null; created_at: string
       }, 'project_id' | 'arquivo_url' | 'nome'>
       activity_log: Table<{
         id: string; project_id: string | null; usuario_id: string | null
@@ -52,27 +71,36 @@ export interface Database {
     }
     Views: {
       projects_with_progress: {
-        Row: Database['public']['Tables']['projects']['Row'] & {
-          tasks_total: number; tasks_feitas: number; progresso: number
+        Row: Omit<Database['public']['Tables']['projects']['Row'], 'notas'> & {
+          etapas_total: number; etapas_feitas: number; progresso: number
+          responsaveis_ids: string[]
+          horas_etapas: number; horas_realizadas: number
         }
         Relationships: []
       }
     }
     Functions: {
-      convert_idea_to_task: { Args: { p_idea_id: string }; Returns: string }
+      convert_request_to_project: { Args: { p_request_id: string }; Returns: string }
+      convert_idea_to_stage: { Args: { p_idea_id: string }; Returns: string }
+      complete_password_change: { Args: Record<PropertyKey, never>; Returns: undefined }
+      login_email: { Args: { p_identifier: string }; Returns: string | null }
     }
     Enums: {
       user_role: UserRole
-      project_status: ProjectStatus
       priority: Priority
-      task_status: TaskStatus
+      etapa_status: EtapaStatus
+      risco_nivel: RiscoNivel
+      projeto_modo: ProjetoModo
+      pedido_status: PedidoStatus
+      pedido_urgencia: PedidoUrgencia
     }
     CompositeTypes: Record<string, never>
   }
 }
 
 export type ProjectRow = Database['public']['Views']['projects_with_progress']['Row']
-export type Task = Database['public']['Tables']['tasks']['Row']
+export type Stage = Database['public']['Tables']['project_stages']['Row']
+export type PedidoRow = Database['public']['Tables']['requests']['Row']
 export type Idea = Database['public']['Tables']['ideas']['Row']
 export type Comment = Database['public']['Tables']['comments']['Row']
 export type Attachment = Database['public']['Tables']['attachments']['Row']

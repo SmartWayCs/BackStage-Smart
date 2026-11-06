@@ -76,7 +76,7 @@ export function Comments({ projectId }: { projectId: string }) {
           const author = profileMap.get(c.autor_id)
           const mine = c.autor_id === profile?.id
           return (
-            <li key={c.id} className="flex gap-2 text-sm">
+            <li key={c.id} className="row-hover -mx-2 flex gap-2 rounded-md p-2 text-sm">
               <Avatar nome={author?.nome ?? '?'} src={author?.avatar_url} size={28} />
               <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-2">

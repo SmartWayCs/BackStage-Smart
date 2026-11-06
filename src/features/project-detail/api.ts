@@ -1,73 +1,59 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import type { Attachment, Database, Task } from '@/types/database.types'
+import type { Attachment, Database, EtapaStatus, Stage } from '@/types/database.types'
 
-type TaskUpdate = Database['public']['Tables']['tasks']['Update']
+type StageUpdate = Database['public']['Tables']['project_stages']['Update']
 
-// ---------- tarefas ----------
-export function useTasks(projectId: string) {
+
+// ---------- etapas ----------
+export function useStages(projectId: string) {
   return useQuery({
-    queryKey: ['tasks', projectId],
+    queryKey: ['stages', projectId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('tasks').select('*').eq('project_id', projectId).order('posicao')
+      const { data, error } = await supabase.from('project_stages').select('*').eq('project_id', projectId).order('posicao')
       if (error) throw error
       return data
     },
   })
 }
 
-export function useCreateTask(projectId: string) {
+export function useStageMutations(projectId: string) {
   const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (input: { titulo: string; responsavel_id?: string | null; prazo?: string | null; posicao: number }) => {
-      const { error } = await supabase.from('tasks').insert({ project_id: projectId, ...input })
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ['stages'] })
+    qc.invalidateQueries({ queryKey: ['activity', projectId] })
+    qc.invalidateQueries({ queryKey: ['projects'] })
+    qc.invalidateQueries({ queryKey: ['project', projectId] })
+  }
+  const create = useMutation({
+    mutationFn: async (v: { nome: string; posicao: number; status?: EtapaStatus }) => {
+      const { error } = await supabase.from('project_stages').insert({ project_id: projectId, ...v })
       if (error) throw error
     },
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: ['tasks'] })
-      qc.invalidateQueries({ queryKey: ['projects'] })
-      qc.invalidateQueries({ queryKey: ['project', projectId] })
-      qc.invalidateQueries({ queryKey: ['activity', projectId] })
-    },
+    onSettled: refresh,
   })
-}
-
-export function useUpdateTask(projectId: string) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async ({ id, patch }: { id: string; patch: TaskUpdate }) => {
-      const { error } = await supabase.from('tasks').update(patch).eq('id', id)
+  const update = useMutation({
+    mutationFn: async ({ id, patch }: { id: string; patch: StageUpdate }) => {
+      const { error } = await supabase.from('project_stages').update(patch).eq('id', id)
       if (error) throw error
     },
     onMutate: async ({ id, patch }) => {
-      await qc.cancelQueries({ queryKey: ['tasks', projectId] })
-      const prev = qc.getQueryData<Task[]>(['tasks', projectId])
-      qc.setQueryData<Task[]>(['tasks', projectId], (old) => old?.map((t) => (t.id === id ? { ...t, ...patch } as Task : t)))
+      await qc.cancelQueries({ queryKey: ['stages', projectId] })
+      const prev = qc.getQueryData<Stage[]>(['stages', projectId])
+      qc.setQueryData<Stage[]>(['stages', projectId], (old) => old?.map((s) => (s.id === id ? { ...s, ...patch } as Stage : s)))
       return { prev }
     },
-    onError: (_e, _v, ctx) => { if (ctx?.prev) qc.setQueryData(['tasks', projectId], ctx.prev) },
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: ['tasks'] })
-      qc.invalidateQueries({ queryKey: ['projects'] })
-      qc.invalidateQueries({ queryKey: ['project', projectId] })
-      qc.invalidateQueries({ queryKey: ['activity', projectId] })
-    },
+    onError: (_e, _v, ctx) => { if (ctx?.prev) qc.setQueryData(['stages', projectId], ctx.prev) },
+    onSettled: refresh,
   })
-}
-
-export function useDeleteTask(projectId: string) {
-  const qc = useQueryClient()
-  return useMutation({
+  const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('tasks').delete().eq('id', id)
+      const { error } = await supabase.from('project_stages').delete().eq('id', id)
       if (error) throw error
     },
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: ['tasks'] })
-      qc.invalidateQueries({ queryKey: ['projects'] })
-      qc.invalidateQueries({ queryKey: ['project', projectId] })
-    },
+    onSettled: refresh,
   })
+  return { create, update, remove }
 }
 
 // ---------- ideias ----------
@@ -86,7 +72,6 @@ export function useIdeaMutations(projectId: string, autorId: string | undefined)
   const qc = useQueryClient()
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ['ideas', projectId] })
-    qc.invalidateQueries({ queryKey: ['tasks'] })
     qc.invalidateQueries({ queryKey: ['projects'] })
     qc.invalidateQueries({ queryKey: ['project', projectId] })
     qc.invalidateQueries({ queryKey: ['activity', projectId] })
@@ -100,7 +85,7 @@ export function useIdeaMutations(projectId: string, autorId: string | undefined)
   })
   const convert = useMutation({
     mutationFn: async (ideaId: string) => {
-      const { error } = await supabase.rpc('convert_idea_to_task', { p_idea_id: ideaId })
+      const { error } = await supabase.rpc('convert_idea_to_stage', { p_idea_id: ideaId })
       if (error) throw error
     },
     onSettled: refresh,
@@ -163,7 +148,8 @@ export function useAttachments(projectId: string) {
   })
 }
 
-export function useAttachmentMutations(projectId: string, userId: string | undefined) {
+/** `scope` diz a quem o arquivo pertence: ao projeto (vazio), a uma etapa ou a uma tarefa. */
+export function useAttachmentMutations(projectId: string, userId: string | undefined, scope: { stage_id?: string } = {}) {
   const qc = useQueryClient()
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ['attachments', projectId] })
@@ -172,10 +158,14 @@ export function useAttachmentMutations(projectId: string, userId: string | undef
   const upload = useMutation({
     mutationFn: async (file: File) => {
       const safe = file.name.replace(/[^\w.\-]+/g, '_')
-      const path = `${projectId}/${crypto.randomUUID()}-${safe}`
+      const folder = scope.stage_id ? `etapas/${scope.stage_id}` : 'projeto'
+      const path = `${projectId}/${folder}/${crypto.randomUUID()}-${safe}`
       const up = await supabase.storage.from('attachments').upload(path, file, { contentType: file.type || undefined })
       if (up.error) throw up.error
-      const { error } = await supabase.from('attachments').insert({ project_id: projectId, arquivo_url: path, nome: file.name, enviado_por: userId })
+      const { error } = await supabase.from('attachments').insert({
+        project_id: projectId, arquivo_url: path, nome: file.name, enviado_por: userId,
+        stage_id: scope.stage_id ?? null,
+      })
       if (error) {
         await supabase.storage.from('attachments').remove([path]) // não deixa arquivo órfão
         throw error
@@ -192,6 +182,52 @@ export function useAttachmentMutations(projectId: string, userId: string | undef
     onSettled: refresh,
   })
   return { upload, remove }
+}
+
+/** Troca a lista de responsáveis de uma etapa (insere os novos e remove os retirados). */
+export function useSetStageMembers() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ stageId, prev, next }: { stageId: string; prev: string[]; next: string[] }) => {
+      const toAdd = next.filter((id) => !prev.includes(id))
+      const toRemove = prev.filter((id) => !next.includes(id))
+      if (toAdd.length) {
+        const { error } = await supabase.from('stage_members').insert(toAdd.map((user_id) => ({ stage_id: stageId, user_id })))
+        if (error) throw error
+      }
+      if (toRemove.length) {
+        const { error } = await supabase.from('stage_members').delete().eq('stage_id', stageId).in('user_id', toRemove)
+        if (error) throw error
+      }
+    },
+    onMutate: async ({ stageId, next }) => {
+      await qc.cancelQueries({ queryKey: ['stage-members'] })
+      const prevData = qc.getQueryData<{ stage_id: string; user_id: string }[]>(['stage-members'])
+      qc.setQueryData<{ stage_id: string; user_id: string }[]>(['stage-members'], (old) => [
+        ...(old ?? []).filter((r) => r.stage_id !== stageId), ...next.map((user_id) => ({ stage_id: stageId, user_id })),
+      ])
+      return { prevData }
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.prevData) qc.setQueryData(['stage-members'], ctx.prevData) },
+    onSettled: () => { qc.invalidateQueries({ queryKey: ['stage-members'] }) },
+  })
+}
+
+/** Links temporários (1 h) para exibir imagens do bucket privado. Devolve { caminho: url }. */
+export function useSignedUrls(paths: string[]) {
+  const key = [...paths].sort().join('|')
+  return useQuery({
+    queryKey: ['signed-urls', key],
+    enabled: paths.length > 0,
+    staleTime: 50 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.storage.from('attachments').createSignedUrls(paths, 3600)
+      if (error) throw error
+      const map: Record<string, string> = {}
+      for (const d of data) if (d.path && d.signedUrl) map[d.path] = d.signedUrl
+      return map
+    },
+  })
 }
 
 export async function openAttachment(path: string) {

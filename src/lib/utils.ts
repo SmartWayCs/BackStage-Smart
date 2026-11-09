@@ -19,8 +19,18 @@ export function formatDate(s?: string | null) {
   return s ? parseDate(s).toLocaleDateString('pt-BR') : '—'
 }
 
-export function isOverdue(prazo: string | null | undefined, concluido: boolean) {
-  return Boolean(prazo) && !concluido && (prazo as string) < todayISO()
+/** Hora atual em 'HH:MM'. */
+export function nowHM() {
+  const d = new Date()
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+/** Sem horário, o prazo vale até o fim do dia. Com horário, vence no mesmo dia, depois da hora marcada. */
+export function isOverdue(prazo: string | null | undefined, concluido: boolean, hora?: string | null) {
+  if (!prazo || concluido) return false
+  const hoje = todayISO()
+  if (prazo !== hoje) return prazo < hoje
+  return Boolean(hora) && (hora as string).slice(0, 5) < nowHM()
 }
 
 /** Projeto concluído = tem tarefas e todas estão em etapas de conclusão. */

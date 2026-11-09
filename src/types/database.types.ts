@@ -44,8 +44,8 @@ export interface Database {
       requests: Table<{
         id: string; titulo: string; descricao: string | null; setor: string | null; urgencia: PedidoUrgencia
         status: PedidoStatus; solicitante_id: string | null; resposta: string | null; decidido_por: string | null
-        decidido_em: string | null; project_id: string | null; created_at: string
-      }, 'titulo'>
+        decidido_em: string | null; project_id: string | null; prazo: string | null; prazo_hora: string | null; created_at: string
+      }, 'titulo' | 'urgencia'>
       stage_members: Table<{
         stage_id: string; user_id: string; created_at: string
       }, 'stage_id' | 'user_id'>

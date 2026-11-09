@@ -1,12 +1,12 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { CheckCircle2, FolderKanban, Inbox, Pencil, Plus, Search, Trash2, XCircle } from 'lucide-react'
+import { CalendarClock, CheckCircle2, FolderKanban, Inbox, Pencil, Plus, Search, Trash2, XCircle } from 'lucide-react'
 import clsx from 'clsx'
 import { Dialog } from '@/components/ui/Dialog'
 import { PriorityBadge } from '@/components/ui/PriorityBadge'
 import { StatTile } from '@/components/ui/StatTile'
 import { PEDIDO_STATUS_CLASS, PEDIDO_STATUS_LABEL, PEDIDO_STATUS_ORDER, PRIORITY_LABEL } from '@/lib/constants'
-import { timeAgo } from '@/lib/utils'
+import { formatDate, isOverdue, nowHM, timeAgo, todayISO } from '@/lib/utils'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useProfileMap } from '@/hooks/useProfileMap'
 import { useAuth } from '@/features/auth/AuthProvider'
@@ -21,12 +21,13 @@ function RequestDialog({ pedido, onClose }: { pedido?: PedidoRow; onClose: () =>
   const { create, update } = useRequestMutations(profile?.id)
   const [titulo, setTitulo] = useState(pedido?.titulo ?? '')
   const [setor, setSetor] = useState(pedido?.setor ?? '')
-  const [urgencia, setUrgencia] = useState<PedidoUrgencia>(pedido?.urgencia ?? 'media')
+  const [urgencia, setUrgencia] = useState<PedidoUrgencia | ''>(pedido?.urgencia ?? '') // sem padrão: a escolha é de quem abre
   const [descricao, setDescricao] = useState(pedido?.descricao ?? '')
   const busy = create.isPending || update.isPending
 
   function submit(e: FormEvent) {
     e.preventDefault()
+    if (!urgencia) return
     const v = { titulo: titulo.trim(), setor: setor.trim() || null, urgencia, descricao: descricao.trim() || null }
     if (pedido) update.mutate({ id: pedido.id, patch: v }, { onSuccess: onClose })
     else create.mutate(v, { onSuccess: onClose })
@@ -40,8 +41,9 @@ function RequestDialog({ pedido, onClose }: { pedido?: PedidoRow; onClose: () =>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className={label}><span>Setor</span>
             <input className="input" value={setor} onChange={(e) => setSetor(e.target.value)} placeholder="Ex.: Comercial" /></label>
-          <label className={label}><span>Urgência</span>
-            <select className="input" value={urgencia} onChange={(e) => setUrgencia(e.target.value as PedidoUrgencia)}>
+          <label className={label}><span>Urgência *</span>
+            <select className="input" required value={urgencia} onChange={(e) => setUrgencia(e.target.value as PedidoUrgencia)}>
+              <option value="" disabled>Selecione</option>
               {URGENCIAS.map((u) => <option key={u} value={u}>{PRIORITY_LABEL[u]}</option>)}</select></label>
         </div>
         <label className={label}><span>Motivo e detalhes</span>
@@ -49,44 +51,55 @@ function RequestDialog({ pedido, onClose }: { pedido?: PedidoRow; onClose: () =>
             placeholder="Qual é o problema ou a necessidade? Quem é afetado? O que mudaria se isso fosse resolvido?" /></label>
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button>
-          <button className="btn-primary" disabled={busy || !titulo.trim()}>{busy ? 'Enviando…' : pedido ? 'Salvar' : 'Enviar pedido'}</button>
+          <button className="btn-primary" disabled={busy || !titulo.trim() || !urgencia}>{busy ? 'Enviando…' : pedido ? 'Salvar' : 'Enviar pedido'}</button>
         </div>
       </form>
     </Dialog>
   )
 }
 
-/** Aprovar ou recusar, com uma resposta para quem pediu. */
+/** Aprovar com prazo, rever o prazo ou recusar, com uma resposta para quem pediu. */
 function DecisionDialog({ pedido, decisao, onClose }: { pedido: PedidoRow; decisao: 'aprovado' | 'recusado'; onClose: () => void }) {
   const { profile } = useAuth()
   const { update } = useRequestMutations(profile?.id)
   const [resposta, setResposta] = useState(pedido.resposta ?? '')
+  const [prazo, setPrazo] = useState(pedido.prazo ?? '')
+  const [hora, setHora] = useState(pedido.prazo_hora?.slice(0, 5) ?? '')
   const recusar = decisao === 'recusado'
+  const aprovado = pedido.status === 'aprovado'
   function submit(e: FormEvent) {
     e.preventDefault()
-    update.mutate({ id: pedido.id, patch: { status: decisao, resposta: resposta.trim() || null } }, { onSuccess: onClose })
+    update.mutate({ id: pedido.id, patch: { status: decisao, resposta: resposta.trim() || null, prazo: recusar ? null : prazo, prazo_hora: recusar ? null : hora || null } }, { onSuccess: onClose })
   }
   return (
-    <Dialog title={recusar ? 'Recusar pedido' : 'Aprovar pedido'} onClose={onClose}>
+    <Dialog title={recusar ? 'Recusar pedido' : aprovado ? 'Prazo do pedido' : 'Aprovar pedido'} onClose={onClose}>
       <form onSubmit={submit} className="space-y-3">
         <p className="text-sm"><strong>{pedido.titulo}</strong></p>
+        {!recusar && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block space-y-1 text-sm"><span>Prazo para resolver *</span>
+              <input className="input" type="date" required autoFocus min={todayISO()} value={prazo} onChange={(e) => setPrazo(e.target.value)} /></label>
+            <label className="block space-y-1 text-sm"><span>Horário (opcional)</span>
+              <input className="input" type="time" min={prazo === todayISO() ? nowHM() : undefined} value={hora} onChange={(e) => setHora(e.target.value)} /></label>
+          </div>
+        )}
         <label className="block space-y-1 text-sm"><span>{recusar ? 'Motivo da recusa *' : 'Resposta para quem pediu (opcional)'}</span>
-          <textarea className="input" rows={4} autoFocus required={recusar} value={resposta} onChange={(e) => setResposta(e.target.value)}
+          <textarea className="input" rows={4} autoFocus={recusar} required={recusar} value={resposta} onChange={(e) => setResposta(e.target.value)}
             placeholder={recusar ? 'Explique por que não será feito agora.' : 'Ex.: Entra no próximo trimestre.'} /></label>
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" className="btn-ghost" onClick={onClose}>Cancelar</button>
-          <button className={clsx('btn', recusar ? 'bg-red-600 text-white hover:bg-red-700' : 'btn-primary')} disabled={update.isPending || (recusar && !resposta.trim())}>
-            {recusar ? 'Recusar pedido' : 'Aprovar pedido'}</button>
+          <button className={clsx('btn', recusar ? 'bg-red-600 text-white hover:bg-red-700' : 'btn-primary')} disabled={update.isPending || (recusar ? !resposta.trim() : !prazo)}>
+            {recusar ? 'Recusar pedido' : aprovado ? 'Salvar' : 'Aprovar pedido'}</button>
         </div>
       </form>
     </Dialog>
   )
 }
 
-/** Fila de pedidos: qualquer pessoa pede; a TI analisa, aprova, recusa ou transforma em projeto. */
+/** Fila de pedidos: o admin abre; a TI analisa, define o prazo ao aprovar, recusa ou transforma em projeto. */
 export function RequestsPage() {
   const { profile } = useAuth()
-  const { canEdit } = usePermissions()
+  const { canEdit, isAdmin } = usePermissions()
   const navigate = useNavigate()
   const profiles = useProfileMap()
   const q = useRequests()
@@ -112,9 +125,9 @@ export function RequestsPage() {
         <div>
           <p className="font-mono text-[11px] uppercase tracking-wider text-slate-500">Fila de pedidos</p>
           <h1 className="text-3xl font-bold tracking-tight">Pedidos à TI</h1>
-          <p className="mt-1 max-w-xl text-sm text-slate-500">Qualquer pessoa pode pedir. A TI analisa, aprova, recusa ou transforma o pedido em projeto, e tudo fica registrado.</p>
+          <p className="mt-1 max-w-xl text-sm text-slate-500">O admin abre o pedido com a urgência. A TI analisa, define o prazo ao aprovar, recusa ou transforma o pedido em projeto, e tudo fica registrado.</p>
         </div>
-        <button className="btn-primary rounded-xl px-4 py-2.5" onClick={() => setDialog({ kind: 'new' })}><Plus size={16} />Novo pedido</button>
+        {isAdmin && <button className="btn-primary rounded-xl px-4 py-2.5" onClick={() => setDialog({ kind: 'new' })}><Plus size={16} />Novo pedido</button>}
       </header>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -146,7 +159,7 @@ export function RequestsPage() {
         <div className="card grid place-items-center gap-2 p-10 text-center">
           <Inbox size={28} className="text-slate-400" />
           <p className="font-semibold">{all.length ? 'Nenhum pedido com esses filtros' : 'Nenhum pedido ainda'}</p>
-          <p className="max-w-sm text-sm text-slate-500">{all.length ? 'Tente limpar a busca ou trocar a situação.' : 'Quando alguém precisar de algo da TI, é só clicar em “Novo pedido”.'}</p>
+          <p className="max-w-sm text-sm text-slate-500">{all.length ? 'Tente limpar a busca ou trocar a situação.' : 'Os pedidos abertos pelo admin aparecem aqui.'}</p>
         </div>
       )}
 
@@ -155,7 +168,7 @@ export function RequestsPage() {
           const owner = p.solicitante_id ? profiles.get(p.solicitante_id)?.nome : undefined
           const decider = p.decidido_por ? profiles.get(p.decidido_por)?.nome : undefined
           const own = p.solicitante_id === profile?.id && p.status === 'novo'
-          const open = p.status === 'novo' || p.status === 'em_analise' || p.status === 'aprovado'
+          const atrasado = isOverdue(p.prazo, p.status !== 'aprovado', p.prazo_hora)
           return (
             <article key={p.id} className="card animate-fade-up flex flex-col gap-3 p-5" style={{ animationDelay: `${Math.min(i, 8) * 50}ms` }}>
               <div className="flex flex-wrap items-center gap-2">
@@ -167,6 +180,11 @@ export function RequestsPage() {
               <h3 className="text-lg font-semibold leading-snug tracking-tight">{p.titulo}</h3>
               {p.descricao && <p className="whitespace-pre-wrap text-sm text-slate-600 dark:text-slate-300">{p.descricao}</p>}
               <p className="text-xs text-slate-500">Pedido por <strong>{owner ?? 'alguém'}</strong></p>
+              {p.prazo && (
+                <p className={clsx('inline-flex w-fit items-center gap-1.5 text-sm font-medium', atrasado && 'text-red-600 dark:text-red-400')}>
+                  <CalendarClock size={14} />Prazo: {formatDate(p.prazo)}{p.prazo_hora && ` às ${p.prazo_hora.slice(0, 5)}`}{atrasado && ' (vencido)'}
+                </p>
+              )}
 
               {p.resposta && (
                 <p className={clsx('rounded-lg p-3 text-sm', p.status === 'recusado' ? 'bg-red-50 text-red-900 dark:bg-red-950/30 dark:text-red-200' : 'bg-slate-50 dark:bg-slate-800/60')}>
@@ -180,7 +198,8 @@ export function RequestsPage() {
                   {canEdit && p.status === 'novo' && <button className="btn-ghost rounded-lg border border-slate-200 dark:border-slate-700" onClick={() => update.mutate({ id: p.id, patch: { status: 'em_analise' } })}><Search size={14} />Analisar</button>}
                   {canEdit && (p.status === 'novo' || p.status === 'em_analise') && <button className="btn-ghost rounded-lg border border-slate-200 dark:border-slate-700" onClick={() => setDialog({ kind: 'decide', p, d: 'aprovado' })}><CheckCircle2 size={14} />Aprovar</button>}
                   {canEdit && (p.status === 'novo' || p.status === 'em_analise') && <button className="btn-ghost rounded-lg border border-red-200 text-red-700 dark:border-red-900 dark:text-red-400" onClick={() => setDialog({ kind: 'decide', p, d: 'recusado' })}><XCircle size={14} />Recusar</button>}
-                  {canEdit && open && <button className="btn-primary rounded-lg" disabled={toProject.isPending} onClick={() => convert(p)}><FolderKanban size={14} />Virar projeto</button>}
+                  {canEdit && p.status === 'aprovado' && <button className="btn-ghost rounded-lg border border-slate-200 dark:border-slate-700" onClick={() => setDialog({ kind: 'decide', p, d: 'aprovado' })}><CalendarClock size={14} />{p.prazo ? 'Alterar prazo' : 'Definir prazo'}</button>}
+                  {canEdit && p.status === 'aprovado' && p.prazo && <button className="btn-primary rounded-lg" disabled={toProject.isPending} onClick={() => convert(p)}><FolderKanban size={14} />Virar projeto</button>}
                   {canEdit && p.status === 'recusado' && <button className="btn-ghost rounded-lg border border-slate-200 dark:border-slate-700" onClick={() => update.mutate({ id: p.id, patch: { status: 'em_analise' } })}>Reabrir</button>}
                   {own && <button className="btn-ghost rounded-lg" onClick={() => setDialog({ kind: 'edit', p })}><Pencil size={14} />Editar</button>}
                   {(own || canEdit) && <button className="btn-ghost ml-auto rounded-lg text-slate-400 hover:text-red-600" aria-label="Excluir pedido" onClick={() => { if (window.confirm(`Excluir o pedido “${p.titulo}”?`)) remove.mutate(p.id) }}><Trash2 size={14} /></button>}

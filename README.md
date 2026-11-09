@@ -4,7 +4,7 @@ App interno da TI (estilo Trello) — React + TS + Vite + Tailwind + Supabase.
 
 ## Setup
 1. `npm install`
-2. Crie um projeto no Supabase e rode, em ordem, os arquivos `0001` a `0018` de `supabase/migrations/` no SQL Editor
+2. Crie um projeto no Supabase e rode, em ordem, os arquivos `0001` a `0020` de `supabase/migrations/` no SQL Editor
    (ou `supabase db push` com a CLI). O `0005` cria o bucket privado `attachments` e o `0007` liga o Realtime.
 3. `cp .env.example .env` e preencha `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`.
 4. Crie usuários em Authentication → Users. Promova o primeiro admin no SQL Editor:
@@ -39,7 +39,7 @@ explicação, responsável, horas previstas/realizadas, datas e imagens. O progr
 - **App instalável (PWA)**: precisa estar publicado em HTTPS; no celular, "Adicionar à tela de início". Há `vercel.json` pronto para a Vercel.
 
 ## Mais telas
-- **Pedidos**: qualquer pessoa pede à TI; a TI analisa, aprova, recusa (com justificativa) ou transforma em projeto.
+- **Pedidos**: o admin abre escolhendo a urgência; a TI analisa, aprova definindo o prazo (com horário opcional), recusa (com justificativa) ou transforma em projeto. A integração `create_request` continua criando pedidos.
 - **Quadro**: etapas de todos os projetos por status (arraste para mudar o status).
 - **Calendário**: prazos do mês e exportação `.ics` para Google Agenda/Outlook.
 - **Modo TV** (`/tv`): painéis que trocam sozinhos (setas, espaço pausa, Esc sai).

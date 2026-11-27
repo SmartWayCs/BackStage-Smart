@@ -108,7 +108,7 @@ export function TvPage() {
               { t: 'Risco alto', rows: data.riscoAlto.map((e) => ({ id: e.id, a: e.nome, b: `${data.nomes.get(e.project_id) ?? ''} · ${RISCO_LABEL.alto}` })) },
             ].filter((g) => g.rows.length).map((g) => (
               <section key={g.t} className="card p-5">
-                <h3 className="mb-3 flex items-center gap-2 text-xl font-semibold"><Lock size={18} className="text-red-500" />{g.t}<span className="rounded-full bg-red-100 px-2.5 text-base text-red-800">{g.rows.length}</span></h3>
+                <h3 className="mb-3 flex items-center gap-2 text-xl font-semibold"><Lock size={18} className="text-red-500" />{g.t}<span className="rounded-full bg-red-100 px-2.5 text-base text-red-800 dark:bg-red-950/50 dark:text-red-300">{g.rows.length}</span></h3>
                 <ul className="divide-y divide-slate-100 dark:divide-slate-800">
                   {g.rows.slice(0, 5).map((r) => <li key={r.id} className="py-2"><p className="text-lg font-medium">{r.a}</p><p className="truncate text-sm text-slate-500">{r.b}</p></li>)}
                 </ul>

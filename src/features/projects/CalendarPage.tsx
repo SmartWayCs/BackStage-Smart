@@ -43,7 +43,7 @@ export function CalendarPage() {
     const out: Item[] = []
     for (const p of projects.data ?? []) {
       if (!p.prazo || mine || p.modo === 'manutencao') continue
-      out.push({ id: `p-${p.id}`, to: `/projetos/${p.id}`, label: p.nome, sub: 'Prazo do projeto', date: p.prazo, color: '#0f172a', done: isProjectDone(p), kind: 'projeto' })
+      out.push({ id: `p-${p.id}`, to: `/projetos/${p.id}`, label: p.nome, sub: 'Prazo do projeto', date: p.prazo, color: '#475569', done: isProjectDone(p), kind: 'projeto' })
     }
     for (const s of stages.data ?? []) {
       if (!s.prazo) continue
